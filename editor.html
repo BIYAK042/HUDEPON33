@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -96,7 +95,15 @@ hr { border:0; border-top:1px solid var(--line); margin:18px 0; }
 .bubble.me { margin-left:auto; background:#e6daf8; }
 .bubble.them { margin-right:auto; background:white; border:1px solid var(--line); }
 .bubble small { display:block; margin-top:5px; font-size:10px; color:var(--muted); }
-.pv-image { width:100%; border-radius:10px; margin-bottom:8px; }
+.pv-image { display:block; width:100%; max-height:300px; object-fit:contain;
+  border-radius:10px; margin:0 0 8px; background:#f5f1fa; }
+.upload-area { margin-top:9px; padding:11px; border:1px dashed #cbb9e7;
+  border-radius:12px; background:#faf7ff; }
+.upload-buttons { display:flex; flex-wrap:wrap; gap:7px; margin-top:8px; }
+.upload-buttons button { flex:1; min-width:115px; }
+.upload-preview { display:block; max-width:100%; max-height:200px;
+  object-fit:contain; margin:10px auto 0; border-radius:10px; }
+.upload-note { margin:7px 0 0; font-size:11px; color:var(--muted); line-height:1.5; }
 footer { text-align:center; padding:0 15px 25px; color:var(--muted); font-size:11px; }
 @media(max-width:850px) {
   .layout { grid-template-columns:1fr; padding:12px; }
@@ -161,7 +168,7 @@ const definitions = {
     fields:[
       ["name","이름","text"],["nickname","별명","text"],
       ["age","나이","text"],["birthday","생일","text"],
-      ["occupation","직업","text"],["avatar","프로필 이미지 주소","text"],
+      ["occupation","직업","text"],["avatar","프로필 이미지","image"],
       ["statusMessage","상태 메시지","text"],
       ["profile","프로필 소개","textarea"],["personality","성격 및 키워드","textarea"],
       ["extra","추가 설정","textarea"]
@@ -171,7 +178,7 @@ const definitions = {
     kind:"chat",
     fields:[
       ["contact","대화 상대 이름","text"],
-      ["avatar","프로필 이미지 주소","text"],
+      ["avatar","프로필 이미지","image"],
       ["messages","메시지 목록","messages"]
     ]
   },
@@ -186,7 +193,7 @@ const definitions = {
   "갤러리": {
     kind:"list",
     fields:[
-      ["title","사진 제목","text"],["image","이미지 주소","text"],
+      ["title","사진 제목","text"],["image","사진 이미지","image"],
       ["description","사진 설명","textarea"]
     ]
   },
@@ -209,7 +216,7 @@ const definitions = {
     kind:"list",
     fields:[
       ["name","이름","text"],["number","전화번호","text"],
-      ["avatar","프로필 이미지 주소","text"],["note","추가 정보","textarea"]
+      ["avatar","프로필 이미지","image"],["note","추가 정보","textarea"]
     ]
   }
 };
@@ -224,13 +231,13 @@ const defaults = {
   },
   "D챗":[
     {contact:"캐릭터 이름",avatar:"",messages:[
-      {from:"them",text:"안녕!",time:"오후 2:30"},
-      {from:"me",text:"안녕, 뭐 해?",time:"오후 2:31"}
+      {from:"them",text:"안녕!",time:"오후 2:30",image:""},
+      {from:"me",text:"안녕, 뭐 해?",time:"오후 2:31",image:""}
     ]}
   ],
   "D채널 게시글":[{
     author:"익명",date:"2026.10.11",title:"첫 번째 게시글",
-    content:"게시글 내용을 입력해 줈.",
+    content:"게시글 내용을 입력해 줘.",
     comments:[{author:"익명1",text:"댓글을 입력해 줘."}]
   }],
   "갤러리":[{title:"첫 번째 사진",image:"",description:"사진 설명"}],
@@ -243,244 +250,598 @@ let project;
 let section = "캐릭터 설정";
 let selected = {};
 let draft = null;
+let editVersion = 0;
 
 function clone(v){ return JSON.parse(JSON.stringify(v)); }
+
 function load(){
   try {
     const saved = localStorage.getItem(KEY);
     project = saved ? {...clone(defaults),...JSON.parse(saved)} : clone(defaults);
-  } catch(e) { project = clone(defaults); }
+  } catch(e) {
+    project = clone(defaults);
+  }
 }
+
 function save(){
   try {
     localStorage.setItem(KEY,JSON.stringify(project));
     message("자동 저장 완료");
-  } catch(e) { message("저장 공간 부족. JSON 백업을 해 줘."); }
+  } catch(e) {
+    message("저장 공간이 부족해! 이미지 크기를 줄이거나 JSON 백업을 확인해 줘.");
+  }
 }
-function message(s){ document.getElementById("status").textContent=s; }
+
+function message(s){
+  document.getElementById("status").textContent=s;
+}
 
 function makeButton(label,fn,cls=""){
   const b=document.createElement("button");
-  b.textContent=label; b.className=cls; b.onclick=fn; return b;
+  b.textContent=label;
+  b.className=cls;
+  b.onclick=fn;
+  return b;
 }
+
 function buildNav(){
-  const nav=document.getElementById("nav"); nav.replaceChildren();
+  const nav=document.getElementById("nav");
+  nav.replaceChildren();
+
   Object.keys(definitions).forEach(name=>{
     const b=makeButton(name,()=>{
       if(draft && !confirm("저장하지 않은 수정 내용이 사라질 수 있어. 이동할까?")) return;
-      section=name; draft=null; selected={}; buildNav(); renderEditor(); renderPreview();
+      section=name;
+      draft=null;
+      selected={};
+      buildNav();
+      renderEditor();
+      renderPreview();
     },section===name?"active":"");
     nav.appendChild(b);
   });
 }
+
 function listData(){
   return Array.isArray(project[section]) ? project[section] : [];
 }
+
 function newItem(){
-  const def=definitions[section];
   const obj={};
-  def.fields.forEach(f=>{
-    obj[f[0]]=f[2]==="messages" || f[2]==="comments" ? [] : "";
-  });
-  if(section==="D챗") obj.messages=[];
-  if(section==="D채널 게시글") obj.comments=[];
-  return obj;
-}
-function renderEditor(){
-  const root=document.getElementById("editor"); root.replaceChildren();
   const def=definitions[section];
 
+  def.fields.forEach(f=>{
+    obj[f[0]]=(f[2]==="messages" || f[2]==="comments") ? [] : "";
+  });
+
+  if(section==="D챗"){
+    obj.messages=[];
+  }
+  if(section==="D채널 게시글"){
+    obj.comments=[];
+  }
+  return obj;
+}
+
+/* 이미지 선택·미리보기 */
+function createImagePicker(obj,key,label){
+  const area=document.createElement("div");
+  area.className="upload-area";
+
+  const fileInput=document.createElement("input");
+  fileInput.type="file";
+  fileInput.accept="image/*";
+  fileInput.hidden=true;
+
+  const preview=document.createElement("img");
+  preview.className="upload-preview";
+  preview.alt="선택한 이미지 미리보기";
+  preview.hidden=true;
+
+  const note=document.createElement("p");
+  note.className="upload-note";
+
+  const pickButton=makeButton("📷 휴대폰에서 이미지 선택",()=>{
+    fileInput.click();
+  },"primary");
+
+  const urlInput=document.createElement("input");
+  urlInput.type="url";
+  urlInput.placeholder="또는 이미지 주소 붙여넣기";
+  urlInput.value=(obj[key] && !obj[key].startsWith("data:")) ? obj[key] : "";
+
+  const clearButton=makeButton("이미지 삭제",()=>{
+    obj[key]="";
+    urlInput.value="";
+    preview.removeAttribute("src");
+    preview.hidden=true;
+    note.textContent="이미지가 삭제됐어.";
+    renderPreview();
+  },"danger");
+
+  function updatePreview(src){
+    if(src){
+      preview.src=src;
+      preview.hidden=false;
+      note.textContent="이미지가 준비됐어. 저장 버튼을 눌러 적용해 줘.";
+    } else {
+      preview.removeAttribute("src");
+      preview.hidden=true;
+      note.textContent="아직 선택한 이미지가 없어.";
+    }
+  }
+
+  if(obj[key]){
+    updatePreview(obj[key]);
+  } else {
+    note.textContent="JPG, PNG, WEBP 등의 이미지를 선택할 수 있어.";
+  }
+
+  fileInput.addEventListener("change",()=>{
+    const file=fileInput.files && fileInput.files[0];
+    if(!file) return;
+
+    if(!file.type.startsWith("image/")){
+      message("이미지 파일을 선택해 줘.");
+      fileInput.value="";
+      return;
+    }
+
+    if(file.size>12*1024*1024){
+      message("이미지가 너무 커! 12MB 이하의 파일을 선택해 줘.");
+      fileInput.value="";
+      return;
+    }
+
+    const reader=new FileReader();
+
+    reader.onload=()=>{
+      const img=new Image();
+
+      img.onload=()=>{
+        try {
+          const maxSide=1000;
+          const scale=Math.min(1,maxSide/Math.max(img.width,img.height));
+          const canvas=document.createElement("canvas");
+          canvas.width=Math.max(1,Math.round(img.width*scale));
+          canvas.height=Math.max(1,Math.round(img.height*scale));
+
+          const ctx=canvas.getContext("2d");
+          ctx.drawImage(img,0,0,canvas.width,canvas.height);
+
+          let result;
+          if(file.type==="image/png" && !file.type.includes("gif")){
+            result=canvas.toDataURL("image/png");
+          } else {
+            result=canvas.toDataURL("image/jpeg",0.82);
+          }
+
+          obj[key]=result;
+          urlInput.value="";
+          updatePreview(result);
+          renderPreview();
+          message("이미지를 선택했어! 저장하고 적용을 눌러 줘.");
+        } catch(e) {
+          message("이미지를 처리하지 못했어. 다른 이미지를 선택해 줘.");
+        }
+      };
+
+      img.onerror=()=>{
+        message("이미지를 읽을 수 없어. 다른 파일을 선택해 줘.");
+      };
+
+      img.src=reader.result;
+    };
+
+    reader.onerror=()=>{
+      message("이미지 파일을 읽지 못했어.");
+    };
+
+    reader.readAsDataURL(file);
+    fileInput.value="";
+  });
+
+  urlInput.addEventListener("input",()=>{
+    obj[key]=urlInput.value.trim();
+    updatePreview(obj[key]);
+    renderPreview();
+  });
+
+  const buttons=document.createElement("div");
+  buttons.className="upload-buttons";
+  buttons.append(pickButton,clearButton);
+
+  area.append(fileInput,buttons,urlInput,preview,note);
+  return area;
+}
+
+function renderEditor(){
+  const root=document.getElementById("editor");
+  root.replaceChildren();
+
+  const def=definitions[section];
   const title=document.createElement("h2");
-  title.textContent=section; root.appendChild(title);
-  const hint=document.createElement("p"); hint.className="subtitle";
-  hint.textContent=section==="D챗" ? "대화 상대를 선택하고 메시지를 관리해 줘."
+  title.textContent=section;
+  root.appendChild(title);
+
+  const hint=document.createElement("p");
+  hint.className="subtitle";
+  hint.textContent=section==="D챗" ? "대화 상대와 메시지를 수정해 줘."
     : section==="D채널 게시글" ? "게시글을 선택한 뒤 본문과 댓글을 수정해 줘."
     : "항목을 선택하거나 새 항목을 만들어 줘.";
   root.appendChild(hint);
 
   if(def.kind==="object"){
-    draft=clone(project[section]);
+    if(!draft) draft=clone(project[section]);
+
     renderForm(root,draft,def.fields,()=>{
-      project[section]=clone(draft); save(); renderPreview(); message("캐릭터 설정 저장 완료!");
+      project[section]=clone(draft);
+      save();
+      draft=null;
+      renderEditor();
+      renderPreview();
+      message("캐릭터 설정 저장 완료!");
     });
     return;
   }
 
-  const list=document.createElement("div"); list.className="item-list";
+  const list=document.createElement("div");
+  list.className="item-list";
+
   listData().forEach((item,i)=>{
     const row=document.createElement("div");
     row.className="list-item"+(selected.index===i?" selected":"");
-    const info=document.createElement("div"); info.className="item-info";
+
+    const info=document.createElement("div");
+    info.className="item-info";
+
     const strong=document.createElement("strong");
     strong.textContent=item.contact||item.title||item.name||item.author||("항목 "+(i+1));
+
     const small=document.createElement("small");
     small.textContent=section==="D챗" ? `${(item.messages||[]).length}개 메시지`
       : section==="D채널 게시글" ? `${(item.comments||[]).length}개 댓글`
       : item.date||item.number||"";
+
     info.append(strong,small);
-    const buttons=document.createElement("div"); buttons.className="item-buttons";
-    buttons.appendChild(makeButton("편집",()=>editItem(i)));
-    buttons.appendChild(makeButton("삭제",()=>deleteItem(i),"danger"));
-    row.append(info,buttons); list.appendChild(row);
+
+    const buttons=document.createElement("div");
+    buttons.className="item-buttons";
+    buttons.append(
+      makeButton("편집",()=>editItem(i)),
+      makeButton("삭제",()=>deleteItem(i),"danger")
+    );
+
+    row.append(info,buttons);
+    list.appendChild(row);
   });
+
   root.appendChild(list);
   root.appendChild(document.createElement("hr"));
+
   root.appendChild(makeButton("+ 새 항목 추가",()=>{
     const item=newItem();
     listData().push(item);
     selected.index=listData().length-1;
-    editItem(selected.index);
+    draft=clone(item);
+    renderEditor();
+    renderPreview();
   },"primary"));
+
   if(selected.index!==undefined && listData()[selected.index]){
-    const editArea=document.createElement("div"); editArea.id="itemEditor";
+    const editArea=document.createElement("div");
+    editArea.id="itemEditor";
     root.appendChild(document.createElement("hr"));
     root.appendChild(editArea);
-    draft=clone(listData()[selected.index]);
+
+    if(!draft) draft=clone(listData()[selected.index]);
+
     renderForm(editArea,draft,def.fields,()=>{
       project[section][selected.index]=clone(draft);
-      save(); renderEditor(); renderPreview();
+      save();
+      draft=null;
+      renderEditor();
+      renderPreview();
       message("항목 저장 완료!");
     });
   }
 }
-function editItem(i){ selected.index=i; renderEditor(); renderPreview(); }
+
+function editItem(i){
+  selected.index=i;
+  draft=clone(listData()[i]);
+  renderEditor();
+  renderPreview();
+}
 
 function deleteItem(i){
   if(!confirm("이 항목을 삭제할까?")) return;
-  listData().splice(i,1); selected={}; save(); renderEditor(); renderPreview();
+
+  listData().splice(i,1);
+  selected={};
+  draft=null;
+  save();
+  renderEditor();
+  renderPreview();
 }
+
 function renderForm(root,obj,fields,onSave){
-  const grid=document.createElement("div"); grid.className="form-grid";
+  const grid=document.createElement("div");
+  grid.className="form-grid";
+
   fields.forEach(field=>{
     const [key,label,type,options]=field;
     const wrap=document.createElement("div");
-    wrap.className="field"+(["textarea","messages","comments"].includes(type)?" full":"");
-    const lab=document.createElement("label"); lab.textContent=label;
+
+    wrap.className="field"+(
+      ["textarea","messages","comments","image"].includes(type) ? " full" : ""
+    );
+
+    const lab=document.createElement("label");
+    lab.textContent=label;
     wrap.appendChild(lab);
 
     if(type==="messages" || type==="comments"){
       const entries=Array.isArray(obj[key])?obj[key]:[];
-      const list=document.createElement("div"); list.className="item-list";
+      const list=document.createElement("div");
+      list.className="item-list";
+
       entries.forEach((entry,i)=>{
-        const box=document.createElement("div"); box.className="pv-item";
+        const box=document.createElement("div");
+        box.className="pv-item";
+
         if(type==="messages"){
-          const who=document.createElement("label"); who.textContent="보낸 사람";
+          const who=document.createElement("label");
+          who.textContent="보낸 사람";
+
           const select=document.createElement("select");
           [["them","상대방"],["me","나"]].forEach(([v,t])=>{
-            const o=document.createElement("option"); o.value=v;o.textContent=t;select.appendChild(o);
+            const o=document.createElement("option");
+            o.value=v;
+            o.textContent=t;
+            select.appendChild(o);
           });
+
           select.value=entry.from||"them";
-          select.onchange=()=>{entry.from=select.value;renderPreview();};
-          const time=document.createElement("input");time.placeholder="시간";time.value=entry.time||"";
-          time.oninput=()=>{entry.time=time.value;renderPreview();};
-          const text=document.createElement("textarea");text.placeholder="메시지 내용";text.value=entry.text||"";
-          text.oninput=()=>{entry.text=text.value;renderPreview();};
-          box.append(who,select,time,text);
+          select.onchange=()=>{
+            entry.from=select.value;
+            renderPreview();
+          };
+
+          const time=document.createElement("input");
+          time.placeholder="시간";
+          time.value=entry.time||"";
+          time.oninput=()=>{
+            entry.time=time.value;
+            renderPreview();
+          };
+
+          const text=document.createElement("textarea");
+          text.placeholder="메시지 내용";
+          text.value=entry.text||"";
+          text.oninput=()=>{
+            entry.text=text.value;
+            renderPreview();
+          };
+
+          const imageLabel=document.createElement("label");
+          imageLabel.textContent="메시지 이미지";
+
+          box.append(who,select,time,text,imageLabel);
+          box.appendChild(createImagePicker(entry,"image","메시지 이미지"));
         } else {
-          const author=document.createElement("input");author.placeholder="작성자";author.value=entry.author||"";
-          author.oninput=()=>{entry.author=author.value;renderPreview();};
-          const text=document.createElement("textarea");text.placeholder="댓글 내용";text.value=entry.text||"";
-          text.oninput=()=>{entry.text=text.value;renderPreview();};
+          const author=document.createElement("input");
+          author.placeholder="작성자";
+          author.value=entry.author||"";
+          author.oninput=()=>{
+            entry.author=author.value;
+            renderPreview();
+          };
+
+          const text=document.createElement("textarea");
+          text.placeholder="댓글 내용";
+          text.value=entry.text||"";
+          text.oninput=()=>{
+            entry.text=text.value;
+            renderPreview();
+          };
+
           box.append(author,text);
         }
+
         box.appendChild(makeButton("이 항목 삭제",()=>{
-          obj[key].splice(i,1);renderEditor();renderPreview();
+          if(!confirm("이 항목을 삭제할까?")) return;
+          obj[key].splice(i,1);
+          renderEditor();
+          renderPreview();
         },"danger"));
+
         list.appendChild(box);
       });
+
       wrap.appendChild(list);
+
       wrap.appendChild(makeButton(type==="messages"?"+ 메시지 추가":"+ 댓글 추가",()=>{
-        if(!Array.isArray(obj[key]))obj[key]=[];
-        obj[key].push(type==="messages"?{from:"them",text:"",time:""}:{author:"익명",text:""});
+        if(!Array.isArray(obj[key])) obj[key]=[];
+
+        obj[key].push(
+          type==="messages"
+            ? {from:"them",text:"",time:"",image:""}
+            : {author:"익명",text:""}
+        );
+
+        draft=obj;
         renderEditor();
+        renderPreview();
       }));
+    } else if(type==="image"){
+      wrap.appendChild(createImagePicker(obj,key,label));
     } else {
       let input;
+
       if(type==="textarea"){
         input=document.createElement("textarea");
       } else if(type==="select"){
         input=document.createElement("select");
         options.split(",").forEach(v=>{
-          const o=document.createElement("option");o.value=v;o.textContent=v;input.appendChild(o);
+          const o=document.createElement("option");
+          o.value=v;
+          o.textContent=v;
+          input.appendChild(o);
         });
       } else {
         input=document.createElement("input");
         input.type="text";
       }
+
       input.value=Array.isArray(obj[key])?obj[key].join(", "):obj[key]??"";
       input.placeholder=label+" 입력";
+
       input.oninput=()=>{
         obj[key]=input.value;
         renderPreview();
       };
+
       wrap.appendChild(input);
     }
+
     grid.appendChild(wrap);
   });
+
   root.appendChild(grid);
   root.appendChild(makeButton("저장하고 적용",onSave,"primary"));
 }
 
 function addPreviewItem(root,title,text){
-  const box=document.createElement("div");box.className="pv-item";
-  const strong=document.createElement("strong");strong.textContent=title||"제목 없음";
-  const p=document.createElement("p");p.textContent=text||"";
-  box.append(strong,p);root.appendChild(box);
+  const box=document.createElement("div");
+  box.className="pv-item";
+
+  const strong=document.createElement("strong");
+  strong.textContent=title||"제목 없음";
+
+  const p=document.createElement("p");
+  p.textContent=text||"";
+
+  box.append(strong,p);
+  root.appendChild(box);
 }
+
 function renderPreview(){
   const c=project["캐릭터 설정"]||{};
   document.getElementById("pvName").textContent=c.name||"CHARACTER PHONE";
   document.getElementById("pvSection").textContent=section;
-  const root=document.getElementById("pvContent");root.replaceChildren();
+
+  const root=document.getElementById("pvContent");
+  root.replaceChildren();
+
   const def=definitions[section];
   let value=draft||project[section];
 
-  function addImage(src){
-    if(!src)return;
+  function addImage(src,parent=root){
+    if(!src) return;
+
     const img=document.createElement("img");
-    img.className="pv-image";img.src=src;img.alt="이미지";
-    img.onerror=()=>{img.alt="이미지를 불러올 수 없어.";};
-    root.appendChild(img);
+    img.className="pv-image";
+    img.src=src;
+    img.alt="이미지";
+    img.onerror=()=>{
+      img.alt="이미지를 불러올 수 없어.";
+      img.style.display="none";
+    };
+    parent.appendChild(img);
   }
+
   function draw(item){
     if(section==="D챗"){
-      addPreviewItem(item.contact,"대화 목록");
+      const head=document.createElement("div");
+      head.className="pv-item";
+
+      addImage(item.avatar,head);
+
+      const strong=document.createElement("strong");
+      strong.textContent=item.contact||"대화 상대";
+      head.appendChild(strong);
+      root.appendChild(head);
+
       (item.messages||[]).forEach(m=>{
         const b=document.createElement("div");
         b.className="bubble "+(m.from==="me"?"me":"them");
-        b.textContent=m.text||"";
-        const small=document.createElement("small");small.textContent=m.time||"";
-        b.appendChild(small);root.appendChild(b);
+
+        if(m.image) addImage(m.image,b);
+
+        const text=document.createElement("div");
+        text.textContent=m.text||"";
+        b.appendChild(text);
+
+        const small=document.createElement("small");
+        small.textContent=m.time||"";
+        b.appendChild(small);
+        root.appendChild(b);
       });
     } else if(section==="D채널 게시글"){
       addPreviewItem(item.title,(item.author||"익명")+" · "+(item.date||"")+"\n"+(item.content||""));
-      (item.comments||[]).forEach(cm=>addPreviewItem("↳ "+cm.author,cm.text));
+
+      (item.comments||[]).forEach(cm=>{
+        addPreviewItem("↳ "+(cm.author||"익명"),cm.text);
+      });
     } else if(section==="갤러리"){
-      addImage(item.image);addPreviewItem(item.title,item.description);
+      const box=document.createElement("div");
+      box.className="pv-item";
+
+      addImage(item.image,box);
+
+      const strong=document.createElement("strong");
+      strong.textContent=item.title||"제목 없음";
+      box.appendChild(strong);
+
+      const p=document.createElement("p");
+      p.textContent=item.description||"";
+      box.appendChild(p);
+
+      root.appendChild(box);
     } else if(section==="메모"){
       addPreviewItem(item.title,(item.date||"")+"\n"+(item.content||""));
     } else if(section==="통화 기록"){
       addPreviewItem(item.name,[item.type,item.date,item.duration,item.note].filter(Boolean).join(" · "));
     } else {
-      addImage(item.avatar);addPreviewItem(item.name,[item.number,item.note].filter(Boolean).join("\n"));
+      const box=document.createElement("div");
+      box.className="pv-item";
+
+      addImage(item.avatar,box);
+
+      const strong=document.createElement("strong");
+      strong.textContent=item.name||"이름 없음";
+      box.appendChild(strong);
+
+      const p=document.createElement("p");
+      p.textContent=[item.number,item.note].filter(Boolean).join("\n");
+      box.appendChild(p);
+
+      root.appendChild(box);
     }
   }
 
   if(def.kind==="object"){
     addImage(value.avatar);
+
     def.fields.forEach(f=>{
       const v=value[f[0]];
-      if(v!==undefined && v!=="")addPreviewItem(f[1],Array.isArray(v)?v.join(", "):String(v));
+
+      if(v!==undefined && v!=="" && f[0]!=="avatar"){
+        addPreviewItem(f[1],Array.isArray(v)?v.join(", "):String(v));
+      }
     });
   } else if(def.kind==="chat"||def.kind==="post"){
-    if(value && !Array.isArray(value))draw(value);
+    if(value && !Array.isArray(value)) draw(value);
     else (value||[]).forEach(draw);
   } else {
     (value||[]).forEach(draw);
   }
+
   if(!root.children.length){
     const empty=document.createElement("p");
-    empty.className="subtitle";empty.textContent="표시할 내용이 없어.";
+    empty.className="subtitle";
+    empty.textContent="표시할 내용이 없어.";
     root.appendChild(empty);
   }
 }
@@ -488,41 +849,74 @@ function renderPreview(){
 function download(name,text,type){
   const blob=new Blob([text],{type:type+";charset=utf-8"});
   const url=URL.createObjectURL(blob);
-  const a=document.createElement("a");a.href=url;a.download=name;a.click();
+  const a=document.createElement("a");
+  a.href=url;
+  a.download=name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
+
 function backup(){
   download("violet-studio-backup.json",JSON.stringify(project,null,2),"application/json");
   message("JSON 백업 파일을 만들었어.");
 }
+
 function exportData(){
   download("phone-project-data.json",JSON.stringify(project,null,2),"application/json");
   message("프로젝트 데이터 내보내기 완료!");
 }
+
 document.getElementById("jsonFile").addEventListener("change",event=>{
-  const file=event.target.files[0];if(!file)return;
+  const file=event.target.files[0];
+  if(!file) return;
+
   const reader=new FileReader();
+
   reader.onload=()=>{
     try {
       const imported=JSON.parse(reader.result);
-      if(!imported||typeof imported!=="object"||Array.isArray(imported))throw Error();
-      if(!confirm("현재 프로젝트를 불러온 데이터로 교체할까?"))return;
+
+      if(!imported||typeof imported!=="object"||Array.isArray(imported)) throw Error();
+
+      if(!confirm("현재 프로젝트를 불러온 데이터로 교체할까?")) return;
+
       project={...clone(defaults),...imported};
-      selected={};draft=null;save();buildNav();renderEditor();renderPreview();
+      selected={};
+      draft=null;
+      save();
+      buildNav();
+      renderEditor();
+      renderPreview();
       message("JSON 불러오기 완료!");
-    } catch(e){message("불러오기에 실패했어. 올바른 JSON 파일인지 확인해 줘.");}
-    finally{event.target.value="";}
+    } catch(e) {
+      message("불러오기에 실패했어. 올바른 JSON 파일인지 확인해 줘.");
+    } finally {
+      event.target.value="";
+    }
   };
+
   reader.readAsText(file,"UTF-8");
 });
+
 function resetAll(){
-  if(!confirm("현재 작업 내용을 모두 초기 데이터로 되돌릴까?"))return;
-  project=clone(defaults);selected={};draft=null;
-  save();buildNav();renderEditor();renderPreview();
+  if(!confirm("현재 작업 내용을 모두 초기 데이터로 되돌릴까?")) return;
+
+  project=clone(defaults);
+  selected={};
+  draft=null;
+  save();
+  buildNav();
+  renderEditor();
+  renderPreview();
   message("초기 데이터로 복원했어.");
 }
 
-load();buildNav();renderEditor();renderPreview();
+load();
+buildNav();
+renderEditor();
+renderPreview();
 </script>
 </body>
 </html>
