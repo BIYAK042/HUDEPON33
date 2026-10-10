@@ -1,0 +1,528 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Violet Studio | 가상 휴대폰 제작실</title>
+<style>
+:root {
+  --bg:#f5f1fa; --card:#fff; --purple:#7963a4;
+  --deep:#4e396f; --pale:#eee7f7; --line:#e5dced;
+  --text:#352d40; --muted:#92879e; --danger:#b44d6b;
+}
+* { box-sizing:border-box; }
+body {
+  margin:0; background:var(--bg); color:var(--text);
+  font-family:system-ui,-apple-system,"Malgun Gothic",sans-serif;
+}
+button,input,textarea,select { font:inherit; }
+button,.upload {
+  border:0; border-radius:10px; padding:10px 13px;
+  background:var(--pale); color:var(--deep);
+  cursor:pointer; font-size:13px;
+}
+button:hover,.upload:hover { filter:brightness(.96); }
+.primary { background:var(--deep); color:white; }
+.danger { background:#faeaf0; color:var(--danger); }
+header {
+  padding:24px 5%; color:white;
+  background:linear-gradient(120deg,#594278,#9983bd);
+}
+header h1 { margin:0 0 6px; font-size:23px; }
+header p { margin:0; font-size:13px; opacity:.85; }
+.toolbar { display:flex; gap:8px; flex-wrap:wrap; margin-top:17px; }
+header button { background:white; color:var(--deep); }
+.layout {
+  max-width:1500px; margin:auto; padding:20px;
+  display:grid; grid-template-columns:minmax(0,1.1fr) minmax(300px,.9fr);
+  gap:18px; align-items:start;
+}
+.card {
+  min-width:0; padding:20px; background:var(--card);
+  border:1px solid var(--line); border-radius:18px;
+  box-shadow:0 5px 22px #49316b09;
+}
+h2 { font-size:19px; margin:0 0 6px; }
+.subtitle { font-size:12px; color:var(--muted); margin:0 0 18px; line-height:1.6; }
+.nav { display:flex; flex-wrap:wrap; gap:7px; margin-bottom:17px; }
+.nav button { padding:9px 11px; }
+.nav button.active { background:var(--deep); color:white; }
+label { display:block; margin:13px 0 6px; font-size:13px; font-weight:650; }
+input,textarea,select {
+  width:100%; padding:10px 11px; border:1px solid var(--line);
+  border-radius:10px; background:#fdfcff; color:var(--text);
+}
+textarea { min-height:85px; resize:vertical; line-height:1.6; }
+input:focus,textarea:focus,select:focus { outline:2px solid #cbb9e7; }
+.form-grid { display:grid; grid-template-columns:1fr 1fr; gap:0 12px; }
+.field.full { grid-column:1/-1; }
+.row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.row > button { flex:0 0 auto; }
+.actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+hr { border:0; border-top:1px solid var(--line); margin:18px 0; }
+.item-list { display:grid; gap:8px; }
+.list-item {
+  display:flex; gap:10px; align-items:center; justify-content:space-between;
+  border:1px solid var(--line); border-radius:12px; padding:11px;
+}
+.list-item.selected { border-color:var(--purple); background:#f7f3fc; }
+.item-info { min-width:0; flex:1; overflow-wrap:anywhere; }
+.item-info strong { display:block; font-size:13px; }
+.item-info small { color:var(--muted); font-size:11px; }
+.item-buttons { display:flex; gap:5px; }
+.item-buttons button { padding:7px 9px; }
+.status { color:var(--deep); font-size:12px; margin-top:13px; }
+.hint { color:var(--muted); font-size:11px; line-height:1.7; }
+.preview-bg { background:#e9e2f1; border-radius:20px; padding:14px; }
+.phone {
+  max-width:390px; min-height:540px; margin:auto; overflow:hidden;
+  border:7px solid #30283a; border-radius:29px; background:#fbfaff;
+}
+.phone-top { background:#f0eafa; padding:17px; }
+.phone-top small { color:var(--muted); }
+.phone-top h2 { margin:5px 0; font-size:21px; overflow-wrap:anywhere; }
+.phone-content { padding:13px; }
+.pill { display:inline-block; padding:5px 9px; border-radius:20px;
+  background:#e8def6; color:var(--deep); font-size:11px; }
+.pv-item {
+  padding:12px; margin:8px 0; background:white;
+  border:1px solid #eee7f4; border-radius:13px; overflow-wrap:anywhere;
+}
+.pv-item strong { display:block; font-size:13px; margin-bottom:5px; }
+.pv-item p { white-space:pre-wrap; margin:3px 0; font-size:13px; line-height:1.55; }
+.bubble { padding:9px 11px; border-radius:14px; margin:7px 0;
+  max-width:88%; font-size:13px; white-space:pre-wrap; overflow-wrap:anywhere; }
+.bubble.me { margin-left:auto; background:#e6daf8; }
+.bubble.them { margin-right:auto; background:white; border:1px solid var(--line); }
+.bubble small { display:block; margin-top:5px; font-size:10px; color:var(--muted); }
+.pv-image { width:100%; border-radius:10px; margin-bottom:8px; }
+footer { text-align:center; padding:0 15px 25px; color:var(--muted); font-size:11px; }
+@media(max-width:850px) {
+  .layout { grid-template-columns:1fr; padding:12px; }
+  header { padding:20px; }
+}
+@media(max-width:450px) {
+  .form-grid { grid-template-columns:1fr; }
+  .field.full { grid-column:auto; }
+  .card { padding:14px; }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>✦ VIOLET STUDIO</h1>
+  <p>가상 휴대폰 제작실 · CHARACTER PHONE EDITOR</p>
+  <div class="toolbar">
+    <button onclick="backup()">JSON 백업</button>
+    <button onclick="document.getElementById('jsonFile').click()">JSON 불러오기</button>
+    <button onclick="exportData()">프로젝트 데이터 내보내기</button>
+    <button onclick="resetAll()">프로젝트 초기화</button>
+    <input id="jsonFile" type="file" accept=".json,application/json" hidden>
+  </div>
+</header>
+
+<main class="layout">
+  <section class="card">
+    <h2>콘텐츠 제작실</h2>
+    <p class="subtitle">메뉴를 선택하고 항목을 추가하거나 수정해 줘.</p>
+    <nav class="nav" id="nav"></nav>
+    <div id="editor"></div>
+    <div class="status" id="status" aria-live="polite">작업 준비 완료</div>
+  </section>
+
+  <section class="card">
+    <h2>휴대폰 미리보기</h2>
+    <p class="subtitle">현재 선택한 콘텐츠를 휴대폰 형태로 확인할 수 있어.</p>
+    <div class="preview-bg">
+      <div class="phone">
+        <div class="phone-top">
+          <small>VIOLET PHONE · PREVIEW</small>
+          <h2 id="pvName">CHARACTER PHONE</h2>
+          <span class="pill" id="pvSection">제작실</span>
+        </div>
+        <div class="phone-content" id="pvContent"></div>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="primary" onclick="renderPreview()">미리보기 새로고침</button>
+    </div>
+    <p class="hint">미리보기는 편집용 간이 화면이야. 독자용 사이트는 별도로 제작해야 해.</p>
+  </section>
+</main>
+<footer>VIOLET STUDIO · 작업 내용은 현재 브라우저에 저장돼.</footer>
+
+<script>
+const KEY = "violet-studio-v2";
+
+const definitions = {
+  "캐릭터 설정": {
+    kind:"object",
+    fields:[
+      ["name","이름","text"],["nickname","별명","text"],
+      ["age","나이","text"],["birthday","생일","text"],
+      ["occupation","직업","text"],["avatar","프로필 이미지 주소","text"],
+      ["statusMessage","상태 메시지","text"],
+      ["profile","프로필 소개","textarea"],["personality","성격 및 키워드","textarea"],
+      ["extra","추가 설정","textarea"]
+    ]
+  },
+  "D챗": {
+    kind:"chat",
+    fields:[
+      ["contact","대화 상대 이름","text"],
+      ["avatar","프로필 이미지 주소","text"],
+      ["messages","메시지 목록","messages"]
+    ]
+  },
+  "D채널 게시글": {
+    kind:"post",
+    fields:[
+      ["author","작성자","text"],["date","작성 날짜","text"],
+      ["title","게시글 제목","text"],["content","본문","textarea"],
+      ["comments","댓글 목록","comments"]
+    ]
+  },
+  "갤러리": {
+    kind:"list",
+    fields:[
+      ["title","사진 제목","text"],["image","이미지 주소","text"],
+      ["description","사진 설명","textarea"]
+    ]
+  },
+  "메모": {
+    kind:"list",
+    fields:[
+      ["title","메모 제목","text"],["date","날짜","text"],
+      ["content","메모 내용","textarea"]
+    ]
+  },
+  "통화 기록": {
+    kind:"list",
+    fields:[
+      ["name","상대 이름","text"],["type","통화 유형","select","수신,발신,부재중"],
+      ["date","날짜 및 시간","text"],["duration","통화 시간","text"],
+      ["note","메모","textarea"]
+    ]
+  },
+  "연락처": {
+    kind:"list",
+    fields:[
+      ["name","이름","text"],["number","전화번호","text"],
+      ["avatar","프로필 이미지 주소","text"],["note","추가 정보","textarea"]
+    ]
+  }
+};
+
+const defaults = {
+  "캐릭터 설정":{
+    name:"캐릭터 이름",nickname:"",age:"",birthday:"",
+    occupation:"",avatar:"",statusMessage:"상태 메시지",
+    profile:"캐릭터 소개를 입력해 줘.",
+    personality:"성격과 키워드를 입력해 줘.",
+    extra:""
+  },
+  "D챗":[
+    {contact:"캐릭터 이름",avatar:"",messages:[
+      {from:"them",text:"안녕!",time:"오후 2:30"},
+      {from:"me",text:"안녕, 뭐 해?",time:"오후 2:31"}
+    ]}
+  ],
+  "D채널 게시글":[{
+    author:"익명",date:"2026.10.11",title:"첫 번째 게시글",
+    content:"게시글 내용을 입력해 줈.",
+    comments:[{author:"익명1",text:"댓글을 입력해 줘."}]
+  }],
+  "갤러리":[{title:"첫 번째 사진",image:"",description:"사진 설명"}],
+  "메모":[{title:"새 메모",date:"2026.10.11",content:"메모 내용"}],
+  "통화 기록":[{name:"캐릭터 이름",type:"수신",date:"2026.10.11 14:30",duration:"05:21",note:""}],
+  "연락처":[{name:"캐릭터 이름",number:"",avatar:"",note:""}]
+};
+
+let project;
+let section = "캐릭터 설정";
+let selected = {};
+let draft = null;
+
+function clone(v){ return JSON.parse(JSON.stringify(v)); }
+function load(){
+  try {
+    const saved = localStorage.getItem(KEY);
+    project = saved ? {...clone(defaults),...JSON.parse(saved)} : clone(defaults);
+  } catch(e) { project = clone(defaults); }
+}
+function save(){
+  try {
+    localStorage.setItem(KEY,JSON.stringify(project));
+    message("자동 저장 완료");
+  } catch(e) { message("저장 공간 부족. JSON 백업을 해 줘."); }
+}
+function message(s){ document.getElementById("status").textContent=s; }
+
+function makeButton(label,fn,cls=""){
+  const b=document.createElement("button");
+  b.textContent=label; b.className=cls; b.onclick=fn; return b;
+}
+function buildNav(){
+  const nav=document.getElementById("nav"); nav.replaceChildren();
+  Object.keys(definitions).forEach(name=>{
+    const b=makeButton(name,()=>{
+      if(draft && !confirm("저장하지 않은 수정 내용이 사라질 수 있어. 이동할까?")) return;
+      section=name; draft=null; selected={}; buildNav(); renderEditor(); renderPreview();
+    },section===name?"active":"");
+    nav.appendChild(b);
+  });
+}
+function listData(){
+  return Array.isArray(project[section]) ? project[section] : [];
+}
+function newItem(){
+  const def=definitions[section];
+  const obj={};
+  def.fields.forEach(f=>{
+    obj[f[0]]=f[2]==="messages" || f[2]==="comments" ? [] : "";
+  });
+  if(section==="D챗") obj.messages=[];
+  if(section==="D채널 게시글") obj.comments=[];
+  return obj;
+}
+function renderEditor(){
+  const root=document.getElementById("editor"); root.replaceChildren();
+  const def=definitions[section];
+
+  const title=document.createElement("h2");
+  title.textContent=section; root.appendChild(title);
+  const hint=document.createElement("p"); hint.className="subtitle";
+  hint.textContent=section==="D챗" ? "대화 상대를 선택하고 메시지를 관리해 줘."
+    : section==="D채널 게시글" ? "게시글을 선택한 뒤 본문과 댓글을 수정해 줘."
+    : "항목을 선택하거나 새 항목을 만들어 줘.";
+  root.appendChild(hint);
+
+  if(def.kind==="object"){
+    draft=clone(project[section]);
+    renderForm(root,draft,def.fields,()=>{
+      project[section]=clone(draft); save(); renderPreview(); message("캐릭터 설정 저장 완료!");
+    });
+    return;
+  }
+
+  const list=document.createElement("div"); list.className="item-list";
+  listData().forEach((item,i)=>{
+    const row=document.createElement("div");
+    row.className="list-item"+(selected.index===i?" selected":"");
+    const info=document.createElement("div"); info.className="item-info";
+    const strong=document.createElement("strong");
+    strong.textContent=item.contact||item.title||item.name||item.author||("항목 "+(i+1));
+    const small=document.createElement("small");
+    small.textContent=section==="D챗" ? `${(item.messages||[]).length}개 메시지`
+      : section==="D채널 게시글" ? `${(item.comments||[]).length}개 댓글`
+      : item.date||item.number||"";
+    info.append(strong,small);
+    const buttons=document.createElement("div"); buttons.className="item-buttons";
+    buttons.appendChild(makeButton("편집",()=>editItem(i)));
+    buttons.appendChild(makeButton("삭제",()=>deleteItem(i),"danger"));
+    row.append(info,buttons); list.appendChild(row);
+  });
+  root.appendChild(list);
+  root.appendChild(document.createElement("hr"));
+  root.appendChild(makeButton("+ 새 항목 추가",()=>{
+    const item=newItem();
+    listData().push(item);
+    selected.index=listData().length-1;
+    editItem(selected.index);
+  },"primary"));
+  if(selected.index!==undefined && listData()[selected.index]){
+    const editArea=document.createElement("div"); editArea.id="itemEditor";
+    root.appendChild(document.createElement("hr"));
+    root.appendChild(editArea);
+    draft=clone(listData()[selected.index]);
+    renderForm(editArea,draft,def.fields,()=>{
+      project[section][selected.index]=clone(draft);
+      save(); renderEditor(); renderPreview();
+      message("항목 저장 완료!");
+    });
+  }
+}
+function editItem(i){ selected.index=i; renderEditor(); renderPreview(); }
+
+function deleteItem(i){
+  if(!confirm("이 항목을 삭제할까?")) return;
+  listData().splice(i,1); selected={}; save(); renderEditor(); renderPreview();
+}
+function renderForm(root,obj,fields,onSave){
+  const grid=document.createElement("div"); grid.className="form-grid";
+  fields.forEach(field=>{
+    const [key,label,type,options]=field;
+    const wrap=document.createElement("div");
+    wrap.className="field"+(["textarea","messages","comments"].includes(type)?" full":"");
+    const lab=document.createElement("label"); lab.textContent=label;
+    wrap.appendChild(lab);
+
+    if(type==="messages" || type==="comments"){
+      const entries=Array.isArray(obj[key])?obj[key]:[];
+      const list=document.createElement("div"); list.className="item-list";
+      entries.forEach((entry,i)=>{
+        const box=document.createElement("div"); box.className="pv-item";
+        if(type==="messages"){
+          const who=document.createElement("label"); who.textContent="보낸 사람";
+          const select=document.createElement("select");
+          [["them","상대방"],["me","나"]].forEach(([v,t])=>{
+            const o=document.createElement("option"); o.value=v;o.textContent=t;select.appendChild(o);
+          });
+          select.value=entry.from||"them";
+          select.onchange=()=>{entry.from=select.value;renderPreview();};
+          const time=document.createElement("input");time.placeholder="시간";time.value=entry.time||"";
+          time.oninput=()=>{entry.time=time.value;renderPreview();};
+          const text=document.createElement("textarea");text.placeholder="메시지 내용";text.value=entry.text||"";
+          text.oninput=()=>{entry.text=text.value;renderPreview();};
+          box.append(who,select,time,text);
+        } else {
+          const author=document.createElement("input");author.placeholder="작성자";author.value=entry.author||"";
+          author.oninput=()=>{entry.author=author.value;renderPreview();};
+          const text=document.createElement("textarea");text.placeholder="댓글 내용";text.value=entry.text||"";
+          text.oninput=()=>{entry.text=text.value;renderPreview();};
+          box.append(author,text);
+        }
+        box.appendChild(makeButton("이 항목 삭제",()=>{
+          obj[key].splice(i,1);renderEditor();renderPreview();
+        },"danger"));
+        list.appendChild(box);
+      });
+      wrap.appendChild(list);
+      wrap.appendChild(makeButton(type==="messages"?"+ 메시지 추가":"+ 댓글 추가",()=>{
+        if(!Array.isArray(obj[key]))obj[key]=[];
+        obj[key].push(type==="messages"?{from:"them",text:"",time:""}:{author:"익명",text:""});
+        renderEditor();
+      }));
+    } else {
+      let input;
+      if(type==="textarea"){
+        input=document.createElement("textarea");
+      } else if(type==="select"){
+        input=document.createElement("select");
+        options.split(",").forEach(v=>{
+          const o=document.createElement("option");o.value=v;o.textContent=v;input.appendChild(o);
+        });
+      } else {
+        input=document.createElement("input");
+        input.type="text";
+      }
+      input.value=Array.isArray(obj[key])?obj[key].join(", "):obj[key]??"";
+      input.placeholder=label+" 입력";
+      input.oninput=()=>{
+        obj[key]=input.value;
+        renderPreview();
+      };
+      wrap.appendChild(input);
+    }
+    grid.appendChild(wrap);
+  });
+  root.appendChild(grid);
+  root.appendChild(makeButton("저장하고 적용",onSave,"primary"));
+}
+
+function addPreviewItem(root,title,text){
+  const box=document.createElement("div");box.className="pv-item";
+  const strong=document.createElement("strong");strong.textContent=title||"제목 없음";
+  const p=document.createElement("p");p.textContent=text||"";
+  box.append(strong,p);root.appendChild(box);
+}
+function renderPreview(){
+  const c=project["캐릭터 설정"]||{};
+  document.getElementById("pvName").textContent=c.name||"CHARACTER PHONE";
+  document.getElementById("pvSection").textContent=section;
+  const root=document.getElementById("pvContent");root.replaceChildren();
+  const def=definitions[section];
+  let value=draft||project[section];
+
+  function addImage(src){
+    if(!src)return;
+    const img=document.createElement("img");
+    img.className="pv-image";img.src=src;img.alt="이미지";
+    img.onerror=()=>{img.alt="이미지를 불러올 수 없어.";};
+    root.appendChild(img);
+  }
+  function draw(item){
+    if(section==="D챗"){
+      addPreviewItem(item.contact,"대화 목록");
+      (item.messages||[]).forEach(m=>{
+        const b=document.createElement("div");
+        b.className="bubble "+(m.from==="me"?"me":"them");
+        b.textContent=m.text||"";
+        const small=document.createElement("small");small.textContent=m.time||"";
+        b.appendChild(small);root.appendChild(b);
+      });
+    } else if(section==="D채널 게시글"){
+      addPreviewItem(item.title,(item.author||"익명")+" · "+(item.date||"")+"\n"+(item.content||""));
+      (item.comments||[]).forEach(cm=>addPreviewItem("↳ "+cm.author,cm.text));
+    } else if(section==="갤러리"){
+      addImage(item.image);addPreviewItem(item.title,item.description);
+    } else if(section==="메모"){
+      addPreviewItem(item.title,(item.date||"")+"\n"+(item.content||""));
+    } else if(section==="통화 기록"){
+      addPreviewItem(item.name,[item.type,item.date,item.duration,item.note].filter(Boolean).join(" · "));
+    } else {
+      addImage(item.avatar);addPreviewItem(item.name,[item.number,item.note].filter(Boolean).join("\n"));
+    }
+  }
+
+  if(def.kind==="object"){
+    addImage(value.avatar);
+    def.fields.forEach(f=>{
+      const v=value[f[0]];
+      if(v!==undefined && v!=="")addPreviewItem(f[1],Array.isArray(v)?v.join(", "):String(v));
+    });
+  } else if(def.kind==="chat"||def.kind==="post"){
+    if(value && !Array.isArray(value))draw(value);
+    else (value||[]).forEach(draw);
+  } else {
+    (value||[]).forEach(draw);
+  }
+  if(!root.children.length){
+    const empty=document.createElement("p");
+    empty.className="subtitle";empty.textContent="표시할 내용이 없어.";
+    root.appendChild(empty);
+  }
+}
+
+function download(name,text,type){
+  const blob=new Blob([text],{type:type+";charset=utf-8"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");a.href=url;a.download=name;a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+function backup(){
+  download("violet-studio-backup.json",JSON.stringify(project,null,2),"application/json");
+  message("JSON 백업 파일을 만들었어.");
+}
+function exportData(){
+  download("phone-project-data.json",JSON.stringify(project,null,2),"application/json");
+  message("프로젝트 데이터 내보내기 완료!");
+}
+document.getElementById("jsonFile").addEventListener("change",event=>{
+  const file=event.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try {
+      const imported=JSON.parse(reader.result);
+      if(!imported||typeof imported!=="object"||Array.isArray(imported))throw Error();
+      if(!confirm("현재 프로젝트를 불러온 데이터로 교체할까?"))return;
+      project={...clone(defaults),...imported};
+      selected={};draft=null;save();buildNav();renderEditor();renderPreview();
+      message("JSON 불러오기 완료!");
+    } catch(e){message("불러오기에 실패했어. 올바른 JSON 파일인지 확인해 줘.");}
+    finally{event.target.value="";}
+  };
+  reader.readAsText(file,"UTF-8");
+});
+function resetAll(){
+  if(!confirm("현재 작업 내용을 모두 초기 데이터로 되돌릴까?"))return;
+  project=clone(defaults);selected={};draft=null;
+  save();buildNav();renderEditor();renderPreview();
+  message("초기 데이터로 복원했어.");
+}
+
+load();buildNav();renderEditor();renderPreview();
+</script>
+</body>
+</html>
